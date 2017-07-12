@@ -1,0 +1,148 @@
+import java_cup.runtime.*;
+import java.util.HashMap;
+import java.util.ArrayList;
+import java.io.*;
+
+parser code {:
+
+  // ****** HASHMAP EXAMPLE ****** METHODS: put, get, entrySet
+  public HashMap<String, Boolean> vars = new HashMap<String, Boolean>();
+  // ****** HASHMAP EXAMPLE ****** METHODS: add, get
+  public ArrayList<String> dummy2 = new ArrayList<String>();
+
+  public int getLine() {
+      if (((Symbol)stack.elementAt(tos)).left != -1){
+          return ((Symbol)stack.elementAt(tos)).left+1;
+      }else return -1;
+  }
+  // Return the column number of actual symbol
+  public int getColumn() {
+      if (((Symbol)stack.elementAt(tos)).left != -1){
+          return ((Symbol)stack.elementAt(tos)).right+1;
+      }else return -1;
+  }
+
+  public Object stack ( int position){
+    // returns the object at the specified position // from the top (tos) of the stack
+    return(((Symbol)stack.elementAt(tos+position)).value);
+  }
+:};
+
+action code {:
+    // print line
+    void Pl(String s){
+      System.out.println(s);
+      return;
+    }
+    // print
+    void P(String s){
+      System.out.print(s);
+      return;
+    }
+:}
+
+terminal CL, CM, S;
+terminal RO, RC, SO, SC;
+terminal PLUS, MINUS, STAR;
+terminal EQUAL, AND, OR, NOT, EQ;
+terminal EV, CF, CT, SV, TK1, TK2, TK3, SEP;
+
+terminal Integer INT;
+terminal String VAR;
+terminal Boolean TRUE,FALSE;
+terminal UMINUS, UMINUS2;
+
+non terminal prog;
+non terminal Boolean exp, evaluate, case, save;
+non terminal Integer int_exp;
+
+non terminal header, tk1_l, tk2_l, tk1_2, instruction, instruction_l, assignment_l, assignment;
+
+// lower precedences
+precedence left OR;
+precedence left AND;
+precedence left NOT;
+precedence left EQ;
+precedence left PLUS, MINUS;
+precedence left STAR;
+precedence left UMINUS;
+// higher precedences
+
+start with prog;
+
+prog ::= header SEP instruction_l
+;
+
+// header
+header ::= tk1_2 TK3 S tk1_2 TK3 S tk1_2
+;
+tk1_2 ::= tk1_l | tk2_l
+;
+tk1_l ::= | tk1_l TK1 S
+;
+tk2_l ::= | tk2_l TK2 S
+;
+
+// prog part
+instruction_l ::= instruction instruction instruction_l | instruction instruction instruction instruction
+;
+instruction ::= evaluate:e {: RESULT = e; :}
+              | case:c {: RESULT = c; :}
+              | save:s {: RESULT = s; :}
+;
+evaluate ::= EV exp:e S {: Pl(e.toString());
+                            RESULT = e;
+                            :}
+;
+case ::= CT exp:a CM CF exp:b S {: Boolean prev = (Boolean)parser.stack(-6);
+                                if(prev == true){
+                                  RESULT = a;
+                                  Pl(a.toString());
+                                  }
+                                  else {
+                                    RESULT = b;
+                                    Pl(b.toString());
+                                    } :}
+;
+save ::= SV assignment_l S {: RESULT = new Boolean(false);
+                              Pl(RESULT.toString());  :}
+;
+assignment_l ::= assignment_l CM VAR:v EQ exp:e {:
+                      parser.vars.put(v, e);
+                      //Pl(v + " = " + e.toString());
+                      :}
+                | VAR:v EQ exp:e {:
+                  parser.vars.put(v, e);
+                  //Pl(v + " = " + e.toString());
+                  :}
+              | assignment_l CM VAR:v EQ VAR SO MINUS INT:i SC {:
+                int base = 9;
+                Integer position =  (base + i);
+                parser.vars.put(v, (Boolean)parser.stack(-position));
+                //Pl(v + " = " + (Boolean)parser.stack(-position));
+                :}
+              | VAR:v EQ VAR SO MINUS INT:i SC {:
+                int base = 7;
+                Integer position =  (base + i);
+                parser.vars.put(v, (Boolean)parser.stack(-position));
+                //Pl(v + " = " + (Boolean)parser.stack(-position));
+                :}
+;
+exp ::=
+    /* Espressioni logiche */
+    exp:a AND exp:b {: RESULT = (a && b); :}
+    | exp:a OR exp:b {: RESULT = (a || b); :}
+    | NOT exp:a {: RESULT = !a; :}
+    | VAR:v {: RESULT = parser.vars.get(v); :}
+    | TRUE:v {: RESULT = v; :}
+    | FALSE:v {: RESULT = v; :}
+    | int_exp:a EQUAL int_exp:b {: RESULT = (a.equals(b)); :} %prec UMINUS
+;
+int_exp ::=
+    /* Espressioni aritmetiche */
+    | int_exp:a PLUS int_exp:b {: RESULT = a + b; :}
+    | int_exp:a STAR int_exp:b {: RESULT = a * b; :}
+    | RO int_exp:a RC {: RESULT = a; :}
+    | INT:a {: RESULT = a; :}
+    | MINUS INT:a {: RESULT = -a; :} %prec UMINUS
+;

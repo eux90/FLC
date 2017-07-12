@@ -1,0 +1,287 @@
+import java_cup.runtime.*;
+import java.io.*;
+
+
+
+parser code {:
+
+    public boolean isCorrect = true;
+    public int labelCounter = 1;
+
+    // Redefinition of error functions
+    /* The report_error function, in this program, is called only when
+       an error, not managed by the error symbol, is found.
+       Indeed, when errors are recognized by the error symbol, the function
+       syntax_error (disabled in this program) is called.
+       This program is an example of error function redefinition: two new
+       functions are developed, pSynError and pSynWarning, used to print
+       syntactical errors and warning, respectively. */
+    public void report_error(String message, Object info) {
+        System.err.print("ERROR: Syntax error");
+        if (info instanceof Symbol)
+            if (((Symbol)info).left != -1){
+                int line = (((Symbol)info).left)+1;
+                int column = (((Symbol)info).right)+1;
+                System.err.print(" (linea "+line+", colonna "+column+"): ");
+            } else System.err.print(": ");
+        else System.err.print(": ");
+    }
+    public void syntax_error(Symbol cur_token){}
+
+        // Return the line number of actual symbol
+    public int getLine() {
+        if (((Symbol)stack.elementAt(tos)).left != -1){
+            return ((Symbol)stack.elementAt(tos)).left+1;
+        }else return -1;
+    }
+    // Return the column number of actual symbol
+    public int getColumn() {
+        if (((Symbol)stack.elementAt(tos)).left != -1){
+            return ((Symbol)stack.elementAt(tos)).right+1;
+        }else return -1;
+    }
+
+    public Object stack ( int position){
+      // returns the object at the specified position // from the top (tos) of the stack
+      return(((Symbol)stack.elementAt(tos+position)).value);
+    }
+
+
+    :};
+
+
+action code {:
+
+    private int genLabel(){
+      return parser.labelCounter++;
+    }
+
+    private void pSynError(String message){
+        System.err.println("SYN ERROR: line: "+parser.getLine()+" col: "+parser.getColumn()+": "+message);
+        parser.isCorrect = false;
+        parser.done_parsing();
+    }
+    private void pSynWarning(String message){
+        System.err.println("SYN WARNING: line: "+parser.getLine()+" col: "+parser.getColumn()+": "+message);
+        parser.isCorrect = false;
+    }
+
+:}
+
+
+// Terminal tokens
+terminal Integer INT;
+terminal Double DOUBLE;
+terminal String ID;
+
+terminal PRINT, IF, WHILE, ELSE;
+terminal RO, RC, BO, BC, S, CM, SO, SC;
+terminal PLUS, MINUS, STAR, DIV;
+terminal MIN, MAJ, MIN_EQ, EQ_MIN, MAJ_EQ, EQ_MAJ, EQ;
+terminal AND, OR, NOT;
+terminal INT_TYPE, DOUBLE_TYPE;
+terminal UMINUS;
+
+
+// Non terminal tokens
+non terminal String type, var, array, exp, id, assignment, print;
+non terminal prog, stmt_list, stmt, if;
+non terminal String while;
+non terminal Integer[] NT0;
+non terminal Integer NT1, NT2;
+non terminal String mineq, majeq;
+
+non terminal decl_list, decl, var_list;
+
+non terminal String if_condition, while_condition;
+
+// Precedences and associativities
+// lower precedences
+precedence left OR;
+precedence left AND;
+precedence left NOT;
+precedence left MIN, MAJ, MIN_EQ, EQ_MIN, MAJ_EQ, EQ_MAJ, EQ;
+precedence left PLUS, MINUS;
+precedence left STAR, DIV;
+precedence left UMINUS;
+// higher precedences
+
+
+//////////////////////////////////////
+// Grammar start
+//////////////////////////////////////
+
+start with prog;
+
+
+prog ::= decl_list stmt_list {: if (parser.isCorrect) System.out.println("END"); :}
+;
+
+
+//////////////////////////////////////
+// Declarations
+//////////////////////////////////////
+
+decl_list ::= decl_list decl |
+;
+
+decl ::= type:x var_list S {: //System.out.println("Found list of: " + x); :}
+    | type error S {: pSynWarning("Error in declaration"); :}
+;
+
+type ::= INT_TYPE {: RESULT = "INT"; :}
+        | DOUBLE_TYPE {: RESULT = "DOUBLE"; :}
+;
+
+var_list ::= var:v {: System.out.println((String)parser.stack(-1) + " " + v); :}
+    | var_list CM {:
+      RESULT = (String)parser.stack(-2);
+        :}
+      var:v {: System.out.println((String)parser.stack(-1) + " " + v);  :}
+;
+
+var ::= ID:i array:a {: if(a == null){
+                          RESULT = i;}
+                        else{
+                          RESULT = i + a;}
+                        :}
+;
+
+array ::= | array:a SO INT:x SC {: if(a == null){
+                                      RESULT = "[" + x.toString() + "]";}
+                                    else{
+                                      RESULT = a + "[" + x.toString() + "]";}
+                                    :}
+;
+
+
+//////////////////////////////////////
+// Instructions
+//////////////////////////////////////
+
+stmt_list ::= stmt_list stmt | stmt
+            | error stmt {: pSynWarning("Error in statement"); :}
+;
+
+
+stmt ::= if
+    | while
+    | assignment:x {: System.out.println(x); :}
+    | print:x {: System.out.println(x); :}
+    | BO stmt_list BC
+    | BO stmt_list error BC {: pSynWarning("Missing ; before }"); :}
+    | BO error BC {: pSynWarning("Missing ; before }"); :}
+    | error S {: pSynWarning("Error in statement"); :}
+;
+
+// Assignment instruction
+assignment ::= id:x S {: RESULT = "ASS " + x; :}
+    | id:x EQ exp:y S {: RESULT = "EVAL " + y + "\n" + "ASS " + x; :}
+    | id EQ error S {: pSynWarning("Error in expression"); :}
+    | error EQ exp S {: pSynWarning("Error in assigment"); :}
+;
+
+
+// PRINT instruction
+print ::= PRINT id:x S {: RESULT = "PRINT " + x; :}
+          | PRINT error S {: pSynWarning("Error in 'print' instruction"); :}
+;
+
+
+// IF instruction
+if ::= IF if_condition NT1 stmt ELSE NT2:x stmt {:
+        Integer i = x;
+        System.out.print("L" + i + ": "); :}
+     | IF if_condition NT1:x stmt {:
+        Integer i = x;
+        System.out.print("L" + i + ": "); :}
+     | IF if_condition NT1 stmt error NT2 stmt {: pSynWarning("Error 'else' expected in 'if' instruction"); :}
+;
+
+NT1 ::= {:
+    Integer i = new Integer(genLabel());
+    RESULT = i;
+    System.out.println("EVAL " + parser.stack(0));
+    System.out.println("GOTOF L" + i);
+  :}
+;
+
+NT2 ::= {:
+    Integer i = new Integer(genLabel());
+    RESULT = i;
+    System.out.println("GOTO L" + i);
+    System.out.print("L" + parser.stack(-2) + ": ");
+:}
+;
+
+if_condition ::= RO exp:x RC {: RESULT = x; :}
+    | RO error RC {: pSynWarning("Error in 'if' condition"); :}
+    | error exp RC {: pSynWarning("Error '(' expected in 'if' instruciton"); :}
+    | RO exp error  {: pSynWarning("Error ')' expected in 'if' instruciton"); :}
+;
+
+
+// WHILE instruction
+while ::= WHILE while_condition NT0:x stmt {:
+    Integer[] i = x;
+    System.out.println("GOTO L" + i[0]);
+    System.out.print("L" + i[1] + ": "); :}
+;
+NT0 ::= {:
+  RESULT = new Integer[2];
+  RESULT[0] = genLabel();
+  RESULT[1] = genLabel();
+  System.out.print("L"+RESULT[0]+": ");
+  System.out.println("EVAL " + parser.stack(0));
+  System.out.println("GOTOF L" + RESULT[1]); :}
+;
+
+while_condition ::= RO exp:x RC {: RESULT = x; :}
+    | RO error RC {: pSynWarning("Error in 'while' condition"); :}
+    | error exp RC {: pSynWarning("Error '(' expected in 'while' instruciton"); :}
+    | RO exp error  {: pSynWarning("Error ')' expected in 'while' instruciton"); :}
+;
+
+
+// Expressions
+exp ::=
+    /* Logical expressions */
+    exp:x AND exp:y {: RESULT = x + " " + y + " " + "&&"; :}
+    | exp:x OR exp:y {: RESULT = x + " " + y + " " + "||"; :}
+    | NOT exp:x {: RESULT = x + " " + "!"; :}
+
+    /* Comparison expressions */
+    | exp:x EQ EQ exp:y {: RESULT = x + " " + y + " " + "=="; :}
+    | exp:x MIN exp:y {: RESULT = x + " " + y + " " + "<"; :}
+    | exp:x MAJ exp:y {: RESULT = x + " " + y + " " + ">"; :}
+    | exp:x mineq:y exp:z {: RESULT = x + " " + y + " " + z; :}
+    | exp:x majeq:y exp:z {: RESULT = x + " " + y + " " + z; :}
+
+    /* Arithmetic expression */
+    | exp:x PLUS exp:y {: RESULT = x + " " + y + " " + "+"; :}
+    | exp:x MINUS exp:y {: RESULT = x + " " + y + " " + "-"; :}
+    | exp:x STAR exp:y {: RESULT = x + " " + y + " " + "*"; :}
+    | exp:x DIV exp:y {: RESULT = x + " " + y + " " + "/"; :}
+    | RO exp:x RC {: RESULT = x; :}
+    | id:x {: RESULT = x; :}
+    | INT:x {: RESULT = x.toString(); :}
+    | DOUBLE:x {: RESULT = x.toString(); :}
+    | MINUS INT:x {: RESULT = "-" + x.toString(); :}
+    | MINUS DOUBLE:x {: RESULT = "-" + x.toString(); :}
+    | RO error RC {: pSynWarning("Error in expression"); :}
+;
+
+
+mineq ::= MIN_EQ {: RESULT = "<="; :}
+        | EQ_MIN {: RESULT = "=<"; :}
+;
+majeq ::= MAJ_EQ {: RESULT = ">="; :}
+        | EQ_MAJ {: RESULT = "=>"; :}
+;
+
+
+id ::= ID:x {: RESULT = x; :}
+      |ID:x SO INT:i SC {: RESULT = x + "[" + i.toString() + "]"; :}
+      |ID:x SO ID:y SC {: RESULT = x + "[" + y + "]"; :}
+      | error SC {: pSynWarning("Error in vector"); :}
+;

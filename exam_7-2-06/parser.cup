@@ -1,0 +1,76 @@
+import java_cup.runtime.*;
+import java.util.HashMap;
+import java.util.ArrayList;
+import java.io.*;
+
+parser code {:
+
+  public HashMap<String, Integer> bitrates = new HashMap<String, Integer>();
+
+  public int getLine() {
+      if (((Symbol)stack.elementAt(tos)).left != -1){
+          return ((Symbol)stack.elementAt(tos)).left+1;
+      }else return -1;
+  }
+  // Return the column number of actual symbol
+  public int getColumn() {
+      if (((Symbol)stack.elementAt(tos)).left != -1){
+          return ((Symbol)stack.elementAt(tos)).right+1;
+      }else return -1;
+  }
+
+  public Object stack ( int position){
+    // returns the object at the specified position // from the top (tos) of the stack
+    return(((Symbol)stack.elementAt(tos+position)).value);
+  }
+:};
+
+action code {:
+
+
+:}
+
+terminal Integer INT;
+terminal String FILE, IP;
+terminal LIST, SERVER, DATA, TIME, BITRATE, DATE_STAMP, TIME_STAMP, CM, C, S;
+
+non terminal prog, list, l_entry, entry, l_item, keyword, ipa, user, l_user, server;
+non terminal Integer l_song;
+
+start with prog;
+
+// list section
+prog ::= list server
+;
+list ::= LIST C l_entry {: System.out.println("OUTPUT: "); :}
+;
+l_entry ::= l_entry entry | entry
+;
+entry ::= INT:x BITRATE C l_item S
+;
+l_item ::= l_item CM FILE:f INT:i {: /*System.out.println("**VALUE: " + parser.stack(-4)); */
+                  parser.bitrates.put(f, (i * (Integer)parser.stack(-6))); :}
+                | FILE:f INT:i {: /* System.out.println("**VALUE: " + parser.stack(-2)); */
+                  parser.bitrates.put(f, (i * (Integer)parser.stack(-4))); :}
+;
+
+// server section
+server ::= SERVER C keyword l_user
+;
+keyword ::= DATA C DATE_STAMP TIME C TIME_STAMP | TIME C TIME_STAMP DATA C DATE_STAMP
+;
+l_user ::= | l_user user
+;
+user ::= ipa C l_song:t S {:
+                System.out.println("TOTALE: " + t); :}
+;
+l_song ::= l_song:t CM FILE:f {:
+                      Integer size = (Integer)parser.bitrates.get(f);
+                      System.out.println(f + " " + size);
+                      RESULT = t + size; :}
+                | FILE:f {:
+                      RESULT = (Integer)parser.bitrates.get(f);
+                      System.out.println(f + " " + RESULT); :}
+;
+ipa ::= IP:x {: System.out.println(x); :}
+;

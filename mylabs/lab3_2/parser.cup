@@ -1,0 +1,33 @@
+import java_cup.runtime.*;
+
+terminal NAME, ARROW, ISBN, CL, INT, LS, LI, BO, AV, SO, LETTER, SEP, CM, S, DATE;
+non terminal prog, l_entry, entry, l_item, item, collocation, genre, l_lend, lend, l_loan, loan;
+
+start with prog;
+
+prog ::= l_entry SEP l_lend {: System.out.println("File correctly recognized"); :}
+;
+l_entry ::= l_entry entry | entry
+;
+entry ::= NAME ARROW l_item S
+;
+l_item ::= l_item CM item | item
+;
+item ::= ISBN CL NAME CL INT CL collocation
+;
+collocation ::= genre INT | genre INT LETTER
+;
+genre ::= LI AV
+        | LI SO
+        | LS AV
+        | LS BO
+        | LS SO
+;
+l_lend ::= l_lend lend | lend
+;
+lend ::= NAME CL l_loan S
+;
+l_loan ::= l_loan CM loan | loan
+;
+loan ::= DATE ISBN
+;

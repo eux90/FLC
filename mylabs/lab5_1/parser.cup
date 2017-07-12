@@ -1,0 +1,90 @@
+import java_cup.runtime.*;
+import java.util.HashMap;
+
+init with {:
+    scalarTable = new HashMap<Character, Double>();
+    vectorTable = new HashMap<Character, MyVector>();
+:}
+
+parser code {:
+  public HashMap<Character, Double> scalarTable;
+  public HashMap<Character, MyVector> vectorTable;
+
+  public void syntax_error(Symbol current_symbol) {
+    StringBuffer m = new StringBuffer("Error");
+
+    if (current_symbol.left != -1) {
+      m.append(" in line " + (current_symbol.left+1));
+  m.append(", column " + (current_symbol.right+1));
+    }
+    m.append(", symbol: " + (current_symbol));
+    m.append(" : Syntax Error");
+
+  System.err.println(m);
+  } 
+
+:}
+
+terminal Double NUMBER;
+terminal Character SCVAR;
+terminal Character VCVAR;
+terminal SO, SC, C, S, EQ, PLUS, MIN, MUL, DIV, SCPR, EXP, RO, RC, END, uminus;
+
+non terminal Double scexp;
+non terminal MyVector vcexp;
+non terminal MyVector vector;
+non terminal prog, operations, operation, scassignment, vcassignemt;
+
+
+/* lower precedence */
+precedence left MIN;
+precedence left PLUS;
+precedence left SCPR;
+precedence left DIV;
+precedence left MUL;
+precedence left EXP;
+precedence left uminus;
+/* higer precedence */
+
+
+prog ::= operations END {: System.out.println("Parsing Complete"); :}
+;
+operations ::= operations operation |
+;
+operation ::= scexp:val S   {: System.out.println("Scalar Expression: " + val); :}
+            | vcexp:v S     {: System.out.println("Vector Expression: " + v.toString()); :}
+            | scassignment
+            | vcassignemt
+;
+scassignment ::= SCVAR:id EQ scexp:val S {: parser.scalarTable.put(id, val);
+                                              System.out.println("Assignment: " + id + " " + val); :}
+;
+vcassignemt ::= VCVAR:id EQ vcexp:v S {: parser.vectorTable.put(id, v);
+                                              System.out.println("Assignment: " + id + " " + v.toString()); :}
+;
+scexp ::=     scexp:val1 PLUS scexp:val2    {: RESULT = val1+val2; :}
+            | scexp:val1 MIN scexp:val2     {: RESULT = val1-val2; :}
+            | scexp:val1 MUL scexp:val2     {: RESULT = val1*val2; :}
+            | scexp:val1 DIV scexp:val2     {: RESULT = val1/val2; :}
+            | scexp:val1 EXP scexp:val2     {: RESULT = val1-val2; :}
+            | vcexp:v1 SCPR vcexp:v2        {: RESULT = v1.dot(v2); :}
+            | RO scexp:val RC               {: RESULT = val; :}
+            | SCVAR:id                      {: RESULT = parser.scalarTable.get(id); :}
+            | NUMBER:val                    {: RESULT = val; :}
+            | MIN SCVAR:id                  {: RESULT = -1*(parser.scalarTable.get(id)); :} %prec uminus
+            | MIN NUMBER:val                {: RESULT = -1*val;  :} %prec uminus
+;
+vcexp ::=     vcexp:v1 PLUS vcexp:v2    {: RESULT = v1.plus(v2); :}
+            | vcexp:v1 MIN vcexp:v2     {: RESULT = v1.minus(v2); :}
+            | scexp:val MUL vcexp:v     {: RESULT = v.scale(val); :}
+            | scexp:val DIV vcexp:v     {: RESULT = v.scale(1/val); :}
+            | vcexp:v MUL scexp:val     {: RESULT = v.scale(val); :}
+            | vcexp:v DIV scexp:val     {: RESULT = v.scale(1/val); :}
+            | RO vcexp:v RC             {: RESULT = v; :}
+            | VCVAR:id                  {: RESULT = parser.vectorTable.get(id); :}
+            | vector:v                  {: RESULT = v; :}
+            | MIN VCVAR:id              {: RESULT = parser.vectorTable.get(id).scale(-1); :} %prec uminus
+            | MIN vector:v              {: RESULT = v.scale(-1); :} %prec uminus
+;
+vector ::=    SO scexp:val1 C scexp:val2 SC {: RESULT = new MyVector(val1, val2); :}
+;

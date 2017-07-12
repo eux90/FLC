@@ -1,0 +1,42 @@
+import java_cup.runtime.*;
+
+parser code {:
+  public void report_error(String message, Object info){
+    StringBuffer m = new StringBuffer(message);
+    if(info instanceof Symbol){
+      if(((Symbol)info).left != 1 && ((Symbol)info).right != -1){
+        int line = (((Symbol)info).left)+1;
+        int column = (((Symbol)info).right)+1;
+        m.append("(line "+ line + ", column" + column + ")");
+      }
+    }
+    System.err.println(m);
+  }
+
+:}
+
+terminal A,V,RO,RC,C,IS,RS,D;
+non terminal prog_start,program,section,rule,fact,interrogation,argument_l,argument,predicate_l,predicate,element;
+
+prog_start ::= program {: System.out.println("Parsed Correctly"); :}
+;
+program ::= section interrogation section
+;
+section ::= section element |
+;
+element ::= fact | rule
+;
+fact ::= predicate D
+;
+rule ::= predicate RS predicate_l D
+;
+interrogation ::= IS predicate_l D
+;
+argument_l ::= argument_l C argument | argument
+;
+predicate_l ::= predicate_l C predicate | predicate
+;
+predicate ::= A | A RO argument_l RC
+;
+argument ::= predicate | V
+;

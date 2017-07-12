@@ -1,0 +1,149 @@
+import java_cup.runtime.*;
+import java.util.HashMap;
+import java.util.ArrayList;
+import java.io.*;
+
+parser code {:
+
+  public HashMap<String, HashMap<String, Integer>> car_info = new HashMap<String, HashMap<String, Integer>>();
+
+  public int getLine() {
+      if (((Symbol)stack.elementAt(tos)).left != -1){
+          return ((Symbol)stack.elementAt(tos)).left+1;
+      }else return -1;
+  }
+  // Return the column number of actual symbol
+  public int getColumn() {
+      if (((Symbol)stack.elementAt(tos)).left != -1){
+          return ((Symbol)stack.elementAt(tos)).right+1;
+      }else return -1;
+  }
+
+  public Object stack ( int position){
+    // returns the object at the specified position // from the top (tos) of the stack
+    return(((Symbol)stack.elementAt(tos+position)).value);
+  }
+:};
+
+action code {:
+    void Pl(String s){
+      System.out.println(s);
+      return;
+    }
+    void P(String s){
+      System.out.print(s);
+      return;
+    }
+
+:}
+
+terminal TK1, TK2, TK3, SEP, PRINT_M_M, PART, MS, M, CM, S, BO, BC, RO, RC, C, EQ, PIPE, ARROW;
+terminal Integer INT;
+terminal String NAME;
+
+non terminal prog, header, tk1_l, car_section, l_car, car, race_section, l_print, print;
+non terminal Integer[] l_section;
+non terminal Double l_part;
+non terminal Object[] l_performance;
+non terminal HashMap l_speed, l_drive_stats;
+non terminal String name;
+
+start with prog;
+
+// header
+prog ::= header car_section race_section
+;
+
+header ::= tk1_l TK2 S tk1_l TK3 S tk1_l
+        | tk1_l TK3 S tk1_l TK2 S tk1_l
+;
+tk1_l ::= | tk1_l TK1 S
+;
+
+// car section
+car_section ::= SEP l_car
+;
+l_car ::= l_car car car | car car
+;
+car ::= NAME:n BO l_speed:l BC {: parser.car_info.put(n,l); :}
+;
+l_speed ::= l_speed:l CM NAME:n EQ INT:i MS {:
+                                      l.put(n, i);
+                                      RESULT = l; :}
+                              | NAME:n EQ INT:i MS {:
+                                      RESULT = new HashMap<String, Integer>();
+                                      RESULT.put(n, i); :}
+;
+
+// race section
+race_section ::= SEP l_print l_performance:l{: Pl("WINNER: " + l[0] + " " + l[1] + " s"); :}
+;
+// list of prints
+l_print ::= | l_print print
+;
+print ::= PRINT_M_M RO NAME RC RO l_section:l RC S {: Pl("MIN: " + l[0] + " MAX: " + l[1]); :}
+;
+l_section ::= l_section:l CM NAME:n {:
+                        HashMap<String, Integer> info = parser.car_info.get((String)parser.stack(-5));
+                        // l[0] = min l[1] = max
+                        Integer actual = info.get(n);
+                        if(l[1] < actual){
+                          l[1] = actual;
+                        }
+                        if(l[0] > actual){
+                          l[0] = actual;
+                        }
+                        RESULT = l; :}
+                | NAME:n {:
+                        HashMap<String, Integer> info = parser.car_info.get((String)parser.stack(-3));
+                        Integer actual = info.get(n);
+                        RESULT = new Integer[2];
+                        RESULT[0] = actual;
+                        RESULT[1] = actual; :}
+;
+//list of performances
+l_performance ::= l_performance:lp name:n ARROW l_part:l S {:
+                    Pl("TOTAL: " + l + " s");
+                    if((Double)lp[1] > l){
+                      lp[0] = n;
+                      lp[1] = l;
+                      RESULT = lp;
+                    }
+                    else{
+                      RESULT = lp;
+                    } :}
+                  | name:n ARROW l_part:l S {:
+                    RESULT = new Object[2];
+                    RESULT[0] = n;
+                    RESULT[1] = l;
+                    Pl("TOTAL: " + RESULT[1] + " s"); :}
+;
+name ::= NAME:n {: RESULT = n; Pl(n); :}
+;
+l_part ::= l_part:lp PIPE PART INT:i C l_drive_stats:l {:
+                    HashMap<String, Integer> stats = parser.car_info.get((String)parser.stack(-7));
+                    Double tot = 0.0;
+                    for(HashMap.Entry e : ((HashMap<String, Integer>)l).entrySet()){
+                      Double partial = (Double)e.getValue()/stats.get(e.getKey());
+                      tot += partial;
+                    }
+                    lp += tot;
+                    RESULT = lp;
+                    Pl("PART" + i + " " + tot + " s"); :}
+                  | PART INT:i C l_drive_stats:l {:
+                    HashMap<String, Integer> stats = parser.car_info.get((String)parser.stack(-5));
+                    Double tot = 0.0;
+                    for(HashMap.Entry e : ((HashMap<String, Integer>)l).entrySet()){
+                      Double partial = (Double)e.getValue()/stats.get(e.getKey());
+                      tot += partial;
+                    }
+                    RESULT = tot;
+                    Pl("PART" + i + " " + tot + " s"); :}
+;
+l_drive_stats ::= l_drive_stats:l CM NAME:n INT:i M {:
+                            l.put(n, new Double(i));
+                            RESULT = l; :}
+                  | NAME:n INT:i M {:
+                            RESULT = new HashMap<String, Double>();
+                            RESULT.put(n, new Double(i)); :}
+;

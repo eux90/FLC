@@ -1,0 +1,197 @@
+import java_cup.runtime.*;
+import java.util.HashMap;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.io.*;
+import java.lang.Math.*;
+
+parser code {:
+
+  // ****** HASHMAP EXAMPLE ****** METHODS: put, get, entrySet
+  public HashMap<String, HashMap<String, Integer>> dummy = new HashMap<String, HashMap<String, Integer>>();
+  // ****** HASHMAP EXAMPLE ****** METHODS: add, get
+  public ArrayList<String> dummy2 = new ArrayList<String>();
+
+  public int getLine() {
+      if (((Symbol)stack.elementAt(tos)).left != -1){
+          return ((Symbol)stack.elementAt(tos)).left+1;
+      }else return -1;
+  }
+  // Return the column number of actual symbol
+  public int getColumn() {
+      if (((Symbol)stack.elementAt(tos)).left != -1){
+          return ((Symbol)stack.elementAt(tos)).right+1;
+      }else return -1;
+  }
+
+  public Object stack ( int position){
+    // returns the object at the specified position // from the top (tos) of the stack
+    return(((Symbol)stack.elementAt(tos+position)).value);
+  }
+:};
+
+action code {:
+    // print line
+    void Pl(String s){
+      System.out.println(s);
+      return;
+    }
+    // print
+    void P(String s){
+      System.out.print(s);
+      return;
+    }
+:}
+
+terminal CL, CM, S;
+terminal RO, RC;
+terminal PLUS, MINUS;
+terminal CD1, CD2;
+terminal OX, CLS, M1, M2, MAX, T, F, SEP;
+terminal Float FLOAT;
+terminal Integer INT;
+
+
+non terminal prog;
+
+non terminal header, case2, case1, cd1_l, cd1_l2;
+non terminal commands_l, commands, command1, command2;
+non terminal Integer item_l, max_f;
+non terminal Integer[] vars, NT0, NT1;
+non terminal Float[] NT2, NT3;
+non terminal Float variation, variation_l;
+
+start with prog;
+
+prog ::= header SEP vars commands_l
+;
+
+
+// section 1
+
+header ::= case1 | case2
+;
+case2 ::= CD2 S cd1_l2 CD2 S cd1_l2
+;
+case1 ::= cd1_l CD2 S CD2 S | cd1_l CD2 S CD2 S CD2 S | cd1_l CD2 S CD2 S CD2 S CD2 S CD2 S
+;
+cd1_l ::= cd1_l CD1 S CD1 S | CD1 S CD1 S CD1 S
+;
+cd1_l2 ::= | cd1_l2 CD1 S
+;
+
+//section 2
+vars ::= OX INT:a S CLS INT:b S {:
+                                RESULT = new Integer[2];
+                                RESULT[0] = a;
+                                RESULT[1] = b;
+                                //Pl(RESULT[0].toString() + " " + RESULT[1].toString());
+                                :}
+        | CLS INT:b S OX INT:a S {:
+                                RESULT = new Integer[2];
+                                RESULT[0] = a;
+                                RESULT[1] = b;
+                                :}
+;
+// section 3
+commands_l ::= commands_l NT0:n commands {:
+                //Pl(n[0].toString() + " " + n[1].toString());
+                :}
+              | NT1:n commands {:
+                              //Pl(n[0].toString() + " " + n[1].toString());
+                              :}
+;
+NT0 ::= {:
+        RESULT = new Integer[2];
+        RESULT = (Integer[])parser.stack(-1);
+   :}
+;
+NT1 ::= {:
+        RESULT = new Integer[2];
+        RESULT = (Integer[])parser.stack(0);
+   :}
+;
+commands ::= command1 | command2
+;
+// command1
+command1 ::= M1 OX PLUS max_f:m S {: Integer[] val = (Integer[])parser.stack(-5);
+                                      val[0] = val[0]+m;
+                                      //Pl(Arrays.toString(val));
+                                      Pl("oxygen = " + val[0] + " cells = " + val[1]);
+                                        :}
+            | M1 OX MINUS max_f:m S {: Integer[] val = (Integer[])parser.stack(-5);
+                                                  val[0] = val[0]-m;
+                                                  //Pl(Arrays.toString(val));
+                                                  Pl("oxygen = " + val[0] + " cells = " + val[1]);
+                                                    :}
+            | M1 CLS PLUS max_f:m S {: Integer[] val = (Integer[])parser.stack(-5);
+                                                  val[1] = val[1]+m;
+                                                  //Pl(Arrays.toString(val));
+                                                  Pl("oxygen = " + val[0] + " cells = " + val[1]);
+                                                    :}
+            | M1 CLS MINUS max_f:m S {: Integer[] val = (Integer[])parser.stack(-5);
+                                                  val[1] = val[1]-m;
+                                                  //Pl(Arrays.toString(val));
+                                                  Pl("oxygen = " + val[0] + " cells = " + val[1]);
+                                                    :}
+;
+max_f ::= MAX RO item_l:l RC {: RESULT = l; :}
+        | MAX RO RC
+;
+item_l ::= item_l:l CM max_f:m {: RESULT = Math.max(l,m); :}
+          | item_l:l CM INT:i {: RESULT = Math.max(l,i); :}
+          | max_f:m {: RESULT = m; :}
+          | INT:i {: RESULT = i; :}
+;
+
+// command2
+command2 ::= M2 T FLOAT F FLOAT OX CL variation_l:l S {:
+                                            Integer[] val = (Integer[])parser.stack(-9);
+                                            //Pl(l.toString());
+                                            val[0] = val[0] + (int)Math.floor(l);
+                                            Pl("oxygen = " + val[0] + " cells = " + val[1]);
+                                                      :}
+            | M2 T FLOAT F FLOAT CLS CL variation_l:l S {:
+                                                        Integer[] val = (Integer[])parser.stack(-9);
+                                                        //Pl(l.toString());
+                                                        val[1] = val[1] + (int)Math.floor(l);
+                                                        Pl("oxygen = " + val[0] + " cells = " + val[1]);
+                                                                  :}
+;
+variation_l ::= variation_l:l CM NT2 variation:v {: l = l + v;
+                                                    RESULT = l;
+                                                    //Pl(v.toString());
+                                                    :}
+              | NT3 variation:v {: RESULT = v;
+                                    //Pl(v.toString());
+                 :}
+;
+NT2 ::= {:
+        RESULT = new Float[2];
+        RESULT[0] = (Float)parser.stack(-6);
+        RESULT[1] = (Float)parser.stack(-4);
+  :}
+;
+NT3 ::= {:
+        RESULT = new Float[2];
+        RESULT[0] = (Float)parser.stack(-4);
+        RESULT[1] = (Float)parser.stack(-2);
+  :}
+;
+variation ::= PLUS INT:i T {: Float[] val = new Float[2];
+                                val = (Float[])parser.stack(-3);
+                                RESULT = i * val[0];
+                    :}
+              | MINUS INT:i T {: Float[] val = new Float[2];
+                    val = (Float[])parser.stack(-3);
+                    RESULT = -i * val[0];
+                    :}
+              | PLUS INT:i F {: Float[] val = new Float[2];
+                    val = (Float[])parser.stack(-3);
+                    RESULT = i * val[1];
+                    :}
+              | MINUS INT:i F {: Float[] val = new Float[2];
+                    val = (Float[])parser.stack(-3);
+                    RESULT = -i * val[1];
+                    :}
+;

@@ -1,0 +1,193 @@
+import java_cup.runtime.*;
+import java.util.HashMap;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.io.*;
+import java.lang.Math.*;
+
+parser code {:
+
+  // ****** HASHMAP EXAMPLE ****** METHODS: put, get, entrySet
+  public HashMap<String, HashMap<String, Integer>> table = new HashMap<String, HashMap<String, Integer>>();
+  // ****** HASHMAP EXAMPLE ****** METHODS: add, get
+  public ArrayList<String> dummy2 = new ArrayList<String>();
+
+  public int getLine() {
+      if (((Symbol)stack.elementAt(tos)).left != -1){
+          return ((Symbol)stack.elementAt(tos)).left+1;
+      }else return -1;
+  }
+  // Return the column number of actual symbol
+  public int getColumn() {
+      if (((Symbol)stack.elementAt(tos)).left != -1){
+          return ((Symbol)stack.elementAt(tos)).right+1;
+      }else return -1;
+  }
+
+  public Object stack ( int position){
+    // returns the object at the specified position // from the top (tos) of the stack
+    return(((Symbol)stack.elementAt(tos+position)).value);
+  }
+:};
+
+action code {:
+    // print line
+    void Pl(String s){
+      System.out.println(s);
+      return;
+    }
+    // print
+    void P(String s){
+      System.out.print(s);
+      return;
+    }
+:}
+
+terminal CM, S, DT;
+terminal RO, RC, SO, SC;
+terminal PLUS, MINUS;
+terminal EQ, EQUAL;
+terminal AND, OR, NOT;
+
+terminal CODE, HOUR, NUMBER;
+terminal SEP, INIT, DEFAULT, WHEN, DO, DONE, CASE, NEXT, PRINT, UMINUS;
+
+terminal String QUOT, NAME, ATT;
+terminal Integer INT;
+
+non terminal prog, header, header_1, header_2, hour_l, code_l, number, state_l, state, cmd, case_cmd, print_cmd;
+
+non terminal HashMap attribute_l;
+non terminal String init_cmd, NT0, NT1, when_cmd_l;
+non terminal Object[] cmd_l;
+non terminal Boolean exp;
+non terminal Integer exp_int;
+
+// Precedences and associativities
+// lower precedences
+precedence left OR;
+precedence left AND;
+precedence left NOT;
+precedence left EQUAL;
+precedence left PLUS, MINUS;
+precedence left UMINUS;
+// higher precedences
+
+start with prog;
+
+prog ::= header SEP state_l SEP init_cmd when_cmd_l
+;
+//header
+header ::= header_1 | header_2
+;
+header_1 ::= hour_l code_l | hour_l code_l number
+;
+header_2 ::= CODE S NUMBER S NUMBER S NUMBER S | NUMBER S CODE S NUMBER S NUMBER S | NUMBER S NUMBER S CODE S NUMBER S | NUMBER S NUMBER S NUMBER S CODE S
+;
+hour_l ::= hour_l HOUR S | HOUR S HOUR S
+;
+code_l ::= code_l CODE S CODE S | CODE S
+;
+number ::= NUMBER S NUMBER S | NUMBER S NUMBER S NUMBER S NUMBER S
+;
+
+// state
+
+state_l ::= state_l state state | state state state
+;
+
+state ::= NAME:n EQ SO attribute_l:l SC S {:
+                parser.table.put(n, l);
+   :}
+;
+attribute_l ::= attribute_l:l CM ATT:n EQ INT:i {:
+                            l.put(n,i);
+                            RESULT = l;
+                    :}
+                          | ATT:n EQ INT:i {:
+                            RESULT = new HashMap<String, Integer>();
+                            RESULT.put(n, i);
+   :}
+;
+
+// transition section
+
+init_cmd ::= INIT NAME:n S {: RESULT = n; :}
+;
+
+
+
+when_cmd_l ::= when_cmd_l WHEN exp DO NT0 cmd_l:l DONE S {:
+                      String state = (String)l[0];
+                      RESULT = new String(state);
+                  :}
+                | WHEN exp DO NT0 cmd_l:l DONE S {:
+                      String state = (String)l[0];
+                      RESULT = new String(state);
+                  :}
+;
+NT0 ::= {: RESULT = (String)parser.stack(-3);
+            Pl(RESULT); :}
+;
+cmd_l ::= cmd_l:l CASE NAME:n NEXT NAME:n2 S {:
+                                    String state = (String)l[0];
+                                    Boolean exp = (Boolean)l[1];
+                                    if((state.equals(n)) && (exp == true)){
+                                       //Pl(state);
+                                       l[0] = n2;
+                                       Pl("STATE SET TO " + n2);
+                                    }
+                                    RESULT = l;
+                                    :}
+          | cmd_l:l PRINT QUOT:q S {:
+                                    if((Boolean)l[1] == true){
+                                      Pl(q);
+                                    }
+                                    RESULT = l;
+                                    :}
+          | CASE NAME:n NEXT NAME:n2 S {:
+                                    RESULT = new Object[2];
+                                    String state = (String)parser.stack(-5);
+                                    //Pl("STATE " + state);
+                                    Boolean exp = (Boolean)parser.stack(-7);
+                                    //Pl("BOOLEAN " + exp.toString());
+                                    if((state.equals(n)) && (exp == true)){
+                                       //Pl(state);
+                                       RESULT[0] = n2;
+                                       Pl("STATE SET TO " + n2);
+                                    }
+                                    else {
+                                      RESULT[0] = state;
+                                    }
+                                    RESULT[1] = exp;
+                                    :}
+          | PRINT QUOT:q S {:
+                              String state = (String)parser.stack(-3);
+                              Boolean exp = (Boolean)parser.stack(-5);
+                              if(exp == true){
+                                Pl(q);
+                              }
+                              RESULT = new Object[2];
+                              RESULT[0] = state;
+                              RESULT[1] = exp;
+                              :}
+;
+
+// expression
+exp ::=
+    /* Logical expressions */
+    exp:x AND exp:y  {: RESULT = (x && y); :}
+    | exp:x OR exp:y {: RESULT = (x || y);  :}
+    | NOT exp:x      {: RESULT = !x; :}
+    | RO exp:x RC     {: RESULT = x; :}
+    | exp_int:x EQUAL exp_int:y {: RESULT = x.equals(y); :}
+
+;
+
+exp_int ::= MINUS INT:i {: RESULT = -i; :}
+          | PLUS INT:i {: RESULT = i; :}
+          | INT:i {: RESULT = i; :}
+          | NAME:n DT ATT:a {:
+                HashMap<String,Integer> tb = parser.table.get(n);
+            RESULT = tb.get(a); :} %prec UMINUS
+;

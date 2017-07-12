@@ -1,0 +1,96 @@
+import java_cup.runtime.*;
+import java.util.HashMap;
+import java.util.ArrayList;
+import java.io.*;
+
+parser code {:
+
+  public HashMap<String, HashMap<String, Integer>> definitions = new HashMap<String, HashMap<String, Integer>>();
+
+  public int getLine() {
+      if (((Symbol)stack.elementAt(tos)).left != -1){
+          return ((Symbol)stack.elementAt(tos)).left+1;
+      }else return -1;
+  }
+  // Return the column number of actual symbol
+  public int getColumn() {
+      if (((Symbol)stack.elementAt(tos)).left != -1){
+          return ((Symbol)stack.elementAt(tos)).right+1;
+      }else return -1;
+  }
+
+  public Object stack ( int position){
+    // returns the object at the specified position // from the top (tos) of the stack
+    return(((Symbol)stack.elementAt(tos+position)).value);
+  }
+:};
+
+action code {:
+
+
+:}
+
+terminal Integer INT,E,G,S,U;
+terminal String WORD;
+terminal RO,RC,CM,SC,C,EQ,D,ASS;
+
+non terminal prog, l_def, def, l_description, description;
+
+non terminal Object[] type;
+non terminal HashMap l_type;
+non terminal Integer review;
+non terminal Integer l_review;
+non terminal Integer symbol;
+non terminal String word_l;
+non terminal String NT0;
+
+start with prog;
+
+prog ::= l_def D l_description
+;
+// definition section
+l_def ::= l_def def | def {:
+              System.out.println("Achived scores."); :}
+;
+def ::= RO l_type:t RC ASS WORD:w {:
+              parser.definitions.put(w, t); :}
+;
+l_type ::= l_type:l CM type:t {:
+              l.put(t[0], t[1]);
+              RESULT = l; :}
+          | type:t {:
+              RESULT = new HashMap<String, Integer>();
+              RESULT.put(t[0], t[1]); :}
+;
+type ::= WORD:w C INT:i {:
+  //HashMap<String, Integer> m = new HashMap<String, Integer>();
+  RESULT = new Object[2];
+  RESULT[0] = w;
+  RESULT[1] = i; :}
+;
+// description section
+l_description ::= l_description description | description
+;
+description ::= WORD C l_review:l EQ word_l:wl SC {:
+        System.out.println(wl + ", " + l); :}
+;
+l_review ::= l_review:l NT0 CM review:r {:
+                    RESULT = l + r; :}
+              | review:r {:
+                    RESULT = r; :}
+;
+NT0 ::= {: RESULT = (String)parser.stack(-2); :}
+;
+review ::= symbol:s WORD:w {:
+  HashMap<String, Integer> m = parser.definitions.get((String)parser.stack(-3));
+  RESULT = new Integer(s * m.get(w)); :}
+;
+
+word_l ::= word_l:wl WORD:w {: RESULT = wl + " " + w; :}
+            | WORD:w {: RESULT = w; :}
+;
+symbol ::= E:x {: RESULT = x; :}
+         | G:x {: RESULT = x; :}
+         | S:x {: RESULT = x; :}
+         | U:x {: RESULT = x; :}
+;

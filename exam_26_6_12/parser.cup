@@ -1,0 +1,140 @@
+import java_cup.runtime.*;
+import java.util.HashMap;
+import java.util.ArrayList;
+import java.io.*;
+
+parser code {:
+
+  // ****** HASHMAP EXAMPLE ****** METHODS: put, get, entrySet
+  public HashMap<String, Float> capitals = new HashMap<String, Float>();
+  // ****** HASHMAP EXAMPLE ****** METHODS: add, get
+  public ArrayList<String> dummy2 = new ArrayList<String>();
+
+  public int getLine() {
+      if (((Symbol)stack.elementAt(tos)).left != -1){
+          return ((Symbol)stack.elementAt(tos)).left+1;
+      }else return -1;
+  }
+  // Return the column number of actual symbol
+  public int getColumn() {
+      if (((Symbol)stack.elementAt(tos)).left != -1){
+          return ((Symbol)stack.elementAt(tos)).right+1;
+      }else return -1;
+  }
+
+  public Object stack ( int position){
+    // returns the object at the specified position // from the top (tos) of the stack
+    return(((Symbol)stack.elementAt(tos+position)).value);
+  }
+:};
+
+action code {:
+    // print line
+    void Pl(String s){
+      System.out.println(s);
+      return;
+    }
+    // print
+    void P(String s){
+      System.out.print(s);
+      return;
+    }
+:}
+
+terminal ARROW, CL, CM, S;
+terminal AUCTION, MIN, EURO, HOUR, CODE, SEP;
+terminal Integer INT;
+terminal Float FLOAT;
+terminal String STR, USRCODE, PRD;
+
+non terminal prog, header, hour_l, currency_l, currency, user_l, auction_l, auction;
+non terminal Object[] advance_l;
+
+start with prog;
+
+prog ::= header SEP currency_l SEP auction_l
+;
+
+// header
+header ::= hour_l CODE S CODE S | CODE S hour_l CODE S | CODE S CODE S hour_l
+          | hour_l CODE S hour_l CODE S | CODE S hour_l CODE S hour_l | hour_l CODE S CODE S hour_l
+;
+hour_l ::= hour_l HOUR S | HOUR S
+;
+
+// second section
+currency_l ::= currency_l currency | currency currency currency
+;
+currency ::=  FLOAT STR STR CL user_l:l S {:  :}
+| FLOAT STR STR CL S
+;
+user_l ::= user_l CM USRCODE:u FLOAT:f {: Float res = f * (Float)parser.stack(-7);
+                                          parser.capitals.put(u, res);
+                                           :}
+| USRCODE:u FLOAT:f {: Float res = f * (Float)parser.stack(-5);
+                        parser.capitals.put(u, res);
+   :}
+;
+
+// third section
+auction_l ::= | auction_l auction auction
+;
+auction ::= AUCTION INT CL PRD CL INT MIN ARROW advance_l:l S {:
+                                  Pl("Winner is " + l[0] + " price " + l[1] + " euro"); :}
+;
+advance_l ::= advance_l:l CM USRCODE:u CL INT:i CL FLOAT:f EURO {:
+                                  Integer duration = (Integer)parser.stack(-10);
+                                  if(duration < i){
+                                    Pl("Error, advance out of time");
+                                    RESULT = new Object[2];
+                                    RESULT = l;
+                                  }
+                                  else{
+                                    Float capital = parser.capitals.get(u);
+                                    if(capital < f){
+                                      Pl("Error, available only " + capital + " euro");
+                                      RESULT = new Object[2];
+                                      RESULT = l;
+                                    }
+                                    else if(f < (Float)l[1]){
+                                      Pl("Error, advance less than the current auction value");
+                                      RESULT = new Object[2];
+                                      RESULT = l;
+                                    }
+                                    else{
+                                      Pl("New auction price: " + f + " euro");
+                                      capital = capital - f;
+                                      parser.capitals.put(u, capital);
+                                      RESULT = new Object[2];
+                                      RESULT[0] = new String(u);
+                                      RESULT[1] = new Float(f);
+                                    }
+                                  }
+
+                                    :}
+| USRCODE:u CL INT:i CL FLOAT:f EURO {: Integer duration = (Integer)parser.stack(-8);
+                                  if(duration < i){
+                                    Pl("Error, advance out of time");
+                                    RESULT = new Object[2];
+                                    RESULT[0] = new String("Nobody");
+                                    RESULT[1] = new Float(0.0f);
+                                  }
+                                  else{
+                                    Float capital = parser.capitals.get(u);
+                                    if(capital < f){
+                                      Pl("Error, available only " + capital + " euro");
+                                      RESULT = new Object[2];
+                                      RESULT[0] = new String("Nobody");
+                                      RESULT[1] = new Float(0.0f);
+                                    }
+                                    else{
+                                      Pl("New auction price: " + f + " euro");
+                                      capital = capital - f;
+                                      parser.capitals.put(u, capital);
+                                      RESULT = new Object[2];
+                                      RESULT[0] = new String(u);
+                                      RESULT[1] = new Float(f);
+                                    }
+                                  }
+  :}
+;

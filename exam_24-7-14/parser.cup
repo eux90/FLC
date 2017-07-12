@@ -1,0 +1,152 @@
+import java_cup.runtime.*;
+import java.util.HashMap;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.io.*;
+import java.lang.Math.*;
+
+parser code {:
+
+  // ****** HASHMAP EXAMPLE ****** METHODS: put, get, entrySet
+  public HashMap<String, Double> stable = new HashMap<String, Double>();
+  // ****** HASHMAP EXAMPLE ****** METHODS: add, get
+  public ArrayList<String> dummy2 = new ArrayList<String>();
+
+  public int getLine() {
+      if (((Symbol)stack.elementAt(tos)).left != -1){
+          return ((Symbol)stack.elementAt(tos)).left+1;
+      }else return -1;
+  }
+  // Return the column number of actual symbol
+  public int getColumn() {
+      if (((Symbol)stack.elementAt(tos)).left != -1){
+          return ((Symbol)stack.elementAt(tos)).right+1;
+      }else return -1;
+  }
+
+  public Object stack ( int position){
+    // returns the object at the specified position // from the top (tos) of the stack
+    return(((Symbol)stack.elementAt(tos+position)).value);
+  }
+:};
+
+action code {:
+    // print line
+    void Pl(String s){
+      System.out.println(s);
+      return;
+    }
+    // print
+    void P(String s){
+      System.out.print(s);
+      return;
+    }
+:}
+
+terminal CL, CM, S;
+terminal RO, RC, SO, SC;
+terminal PLUS, STAR;
+terminal EQ;
+terminal TK1, TK2, EMAIL;
+
+terminal DST, VL, IN, WR, SEP, UMINUS;
+terminal Double DOUBLE;
+terminal String VAR, QUOT;
+
+
+non terminal prog;
+non terminal header, tk1_l, instruction_l, instruction, var_ass, value, interval_l, interval;
+
+non terminal Double NT0, NT1, distance, exp;
+non terminal Double[] point_l;
+
+
+// lower precedences
+precedence left PLUS;
+precedence left STAR;
+precedence left UMINUS;
+// higher precedences
+
+start with prog;
+
+prog ::= header SEP instruction_l
+;
+instruction_l ::= | instruction_l instruction instruction
+;
+instruction ::= var_ass | value
+;
+// header section
+header ::= tk1_l EMAIL S tk1_l TK2 S tk1_l | tk1_l TK2 S tk1_l EMAIL S tk1_l
+;
+tk1_l ::= | tk1_l TK1 S
+;
+
+// var assignement instruction
+
+var_ass ::= VAR:v EQ exp:e S {:
+              parser.stable.put(v, e);
+              //Pl(v + " = " + e.toString());
+  :}
+;
+// distance instruction
+distance ::= DST RO point_l:l RC {: RESULT = l[2]; :}
+;
+point_l ::= point_l:l CM SO exp:a CM exp:b SC {:
+                            //Pl("A " + a.toString() + " B " + b.toString());
+                            //Pl("C " + l[0].toString() + " D " + l[1].toString());
+                            Double v1;
+                            v1 = a - l[0];
+                            v1 = Math.pow(v1, 2);
+                            Double v2;
+                            v2 = b - l[1];
+                            v2 = Math.pow(v2, 2);
+                            RESULT = new Double[3];
+                            RESULT[0] = a;
+                            RESULT[1] = b;
+                            RESULT[2] = l[2] + Math.sqrt(v1 + v2);
+                            //Pl(Arrays.toString(RESULT));
+                            :}
+              | SO exp:a CM exp:b SC {:
+                                RESULT = new Double[3];
+                                RESULT[0] = a;
+                                RESULT[1] = b;
+                                RESULT[2] = 0.0;
+                                //Pl("A " + a.toString() + " B " + b.toString());
+                                //Pl(Arrays.toString(RESULT));
+                            :}
+;
+
+
+// value instruction
+
+value ::= VL exp interval_l S
+;
+interval_l ::= interval_l CM NT0 interval
+                | NT1 interval
+;
+NT0 ::= {:
+          RESULT = (Double)parser.stack(-2);
+          //Pl(RESULT.toString());
+          :}
+;
+NT1 ::= {:
+          RESULT = (Double)parser.stack(0);
+          //Pl(RESULT.toString());
+          :}
+;
+interval ::= IN SO exp:a CL exp:b SC WR QUOT:q {:
+                            Double cmp;
+                            cmp = (Double)parser.stack(-8);
+                            if((a <= cmp) && (b >= cmp))
+                              Pl(q);
+  :}
+;
+
+// expression
+exp ::= exp:a PLUS exp:b {: RESULT = a + b; :}
+      | exp:a STAR exp:b {: RESULT = a * b; :}
+      | RO exp:a RC {: RESULT = a; :}
+      | VAR:v {: RESULT = parser.stable.get(v); :} %prec UMINUS
+      | DOUBLE:d {: RESULT = d; :} %prec UMINUS
+      | distance:d {: RESULT = d; :} %prec UMINUS
+;
