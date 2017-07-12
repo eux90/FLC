@@ -1,0 +1,235 @@
+import java_cup.runtime.*;
+import java.util.HashMap;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.io.*;
+import java.lang.Math.*;
+
+parser code {:
+
+  // ****** HASHMAP EXAMPLE ****** METHODS: put, get, entrySet
+  public HashMap<String, HashMap<String, Integer>> map = new HashMap<String, HashMap<String, Integer>>();
+  // ****** HASHMAP EXAMPLE ****** METHODS: add, get
+  //public ArrayList<String> dummy2 = new ArrayList<String>();
+
+  public int getLine() {
+      if (((Symbol)stack.elementAt(tos)).left != -1){
+          return ((Symbol)stack.elementAt(tos)).left+1;
+      }else return -1;
+  }
+  // Return the column number of actual symbol
+  public int getColumn() {
+      if (((Symbol)stack.elementAt(tos)).left != -1){
+          return ((Symbol)stack.elementAt(tos)).right+1;
+      }else return -1;
+  }
+
+  public Object stack ( int position){
+    // returns the object at the specified position // from the top (tos) of the stack
+    return(((Symbol)stack.elementAt(tos+position)).value);
+  }
+:};
+
+action code {:
+    // print line
+    void Pl(String s){
+      System.out.println(s);
+      return;
+    }
+    // print
+    void P(String s){
+      System.out.print(s);
+      return;
+    }
+:}
+
+terminal CL, CM, S, DT, QM, ELSE, SEP, UMINUS, DECREASE;
+terminal RO, RC, BO, BC;
+terminal PLUS, MINUS;
+terminal EQUAL, MIN, MAX, EQ;
+terminal AND, OR, NOT;
+terminal TK1, TK2, TK3;
+terminal SET, POS, FUEL, /*DECLARE,*/ MV, INC, DEC;
+
+terminal Integer INT;
+terminal String NAME;
+
+
+non terminal prog, header, tk3_r, cmd_l, cmd, tk12, tk12_l;
+
+non terminal HashMap att_l;
+non terminal ArrayList exp_int_l;
+non terminal Integer[] set_inst, /*NT0, NT1,*/ NT2, NT3, NT4, NT5, mv_l, if_cmd, fuel_cmd, dec;
+non terminal Boolean exp, NT6, NT7;
+non terminal Integer exp_int, mm_func;
+
+// Precedences and associativities
+// lower precedences
+precedence left OR;
+precedence left AND;
+precedence left NOT;
+precedence left EQUAL;
+precedence left PLUS, MINUS;
+precedence left UMINUS;
+// higher precedences
+
+
+start with prog;
+
+
+
+prog ::= header SEP set_inst cmd_l
+;
+// header
+
+header ::= tk12_l tk3_r tk12_l | tk12_l
+;
+tk12_l ::= | tk12_l tk12
+;
+tk12 ::= TK1 S | TK2 S
+;
+tk3_r ::= TK3 S | TK3 S TK3 S | TK3 S TK3 S TK3 S
+;
+// set
+set_inst ::= SET POS INT:x CM INT:y MINUS FUEL INT:f S {: RESULT = new Integer[3]; RESULT[0] = x; RESULT[1] = y; RESULT[2] = f; :}
+			| SET FUEL INT:f MINUS POS INT:x CM INT:y S {: RESULT = new Integer[3]; RESULT[0] = x; RESULT[1] = y; RESULT[2] = f; :}
+			| SET MINUS POS INT:x CM INT:y S {: RESULT = new Integer[3]; RESULT[0] = x; RESULT[1] = y; RESULT[2] = 0; :}
+			| SET MINUS FUEL INT:f S {: RESULT = new Integer[3]; RESULT[0] = 0; RESULT[1] = 0; RESULT[2] = f; :}
+			| SET POS INT:x CM INT:y MINUS S {: RESULT = new Integer[3]; RESULT[0] = x; RESULT[1] = y; RESULT[2] = 0; :}
+			| SET FUEL INT:f MINUS S {: RESULT = new Integer[3]; RESULT[0] = 0; RESULT[1] = 0; RESULT[2] = f; :}
+			| SET MINUS S {: RESULT = new Integer[3]; RESULT[0] = 0; RESULT[1] = 0; RESULT[2] = 0; :}
+;
+
+cmd_l ::= cmd_l NT2 cmd NT3 cmd
+		| NT2 cmd NT3 cmd NT4 cmd NT5 cmd
+;
+
+//NT0 ::= {: RESULT = (Integer[])parser.stack(-1); :}
+//NT1 ::= {: RESULT = (Integer[])parser.stack(-3); :}
+NT2 ::= {: RESULT = (Integer[])parser.stack(0); :}
+;
+NT3 ::= {: RESULT = (Integer[])parser.stack(-2); :}
+;
+NT4 ::= {: RESULT = (Integer[])parser.stack(-4); :}
+;
+NT5 ::= {: RESULT = (Integer[])parser.stack(-6); :}
+;
+
+cmd ::=  if_cmd | fuel_cmd | dec
+;
+// declare
+dec ::= DEC BO att_l:l BC NAME:n S {:
+				parser.map.put(n, l);
+        RESULT = (Integer[])parser.stack(-6);
+	:}
+;
+att_l ::= att_l:l NAME:n EQ INT:i S {:
+          l.put(n, i);
+          RESULT = l;
+				:}
+			| NAME:n EQ INT:i S {:
+				RESULT = new HashMap<String, Integer>();
+				RESULT.put(n ,i);
+				:}
+;
+
+// if cmd
+
+if_cmd ::= QM exp BO NT6 mv_l:l BC S {:
+            RESULT = l;
+      :}
+			| QM exp:e BO NT6 mv_l:l1 BC ELSE BO NT7 mv_l:l2 BC S {:
+              if(e == true){
+                RESULT = l1;
+              }
+              else{
+                RESULT = l2;
+              }
+        :}
+;
+
+NT6 ::= {: RESULT = (Boolean)parser.stack(-1); :}
+;
+NT7 ::= {: Boolean exp = (Boolean)parser.stack(-6);
+			RESULT = !exp;
+			:}
+;
+mv_l ::= mv_l:l MV exp_int:x CM exp_int:y CM FUEL exp_int:f S {:
+			Integer[] status = new Integer[3];
+			status = l;
+			Boolean exp = (Boolean)parser.stack(-9);
+			if((exp == true)){
+				status[0] += x;
+				status[1] += y;
+				status[2] += f;
+        Pl("X: " + status[0] + " Y: " + status[1] + " FUEL: " + status[2]);
+				RESULT = status;
+			}
+			RESULT = status;
+			 :}
+
+
+		| MV exp_int:x CM exp_int:y CM FUEL exp_int:f S {:
+
+			Integer[] status = new Integer[3];
+			status = (Integer[])parser.stack(-12);
+			Boolean exp = (Boolean)parser.stack(-8);
+			if((exp == true)){
+				status[0] += x;
+				status[1] += y;
+				status[2] += f;
+        Pl("X: " + status[0] + " Y: " + status[1] + " FUEL: " + status[2]);
+				RESULT = status;
+			}
+			RESULT = status;
+			 :}
+;
+
+// fuel cmd
+
+fuel_cmd ::= FUEL INC CL mm_func:m S {:
+				Integer[] status = new Integer[3];
+					status = (Integer[])parser.stack(-5);
+					status[2] += m;
+          RESULT = status;
+				:}
+			| FUEL DECREASE CL mm_func:m S {:
+				Integer[] status = new Integer[3];
+					status = (Integer[])parser.stack(-5);
+					status[2] -= m;
+          RESULT = status;
+				:}
+;
+
+mm_func ::= MIN RO exp_int_l:l RC {: RESULT = (Integer)Collections.min((ArrayList<Integer>)l); :}
+			| MAX RO exp_int_l:l RC {: RESULT = (Integer)Collections.max((ArrayList<Integer>)l); :}
+;
+exp_int_l ::= exp_int_l:l CM exp_int:i {:
+					l.add(i);
+					RESULT = l;
+				 :}
+			| exp_int:i {:
+					RESULT = new ArrayList<Integer>();
+					RESULT.add(i);
+				 :}
+
+;
+
+// expression
+exp ::=
+    exp:x AND exp:y  {: RESULT = (x && y); :}
+    | exp:x OR exp:y {: RESULT = (x || y);  :}
+    | NOT exp:x      {: RESULT = !x; :}
+    | RO exp:x RC     {: RESULT = x; :}
+    | exp_int:x EQUAL exp_int:y {: RESULT = x.equals(y); :}
+
+;
+
+exp_int ::= MINUS INT:i {: RESULT = -i; :}
+          | PLUS INT:i {: RESULT = i; :}
+          | INT:i {: RESULT = i; :}
+          | NAME:n DT NAME:a {:
+                HashMap<String,Integer> tb = parser.map.get(n);
+            RESULT = tb.get(a); :} %prec UMINUS
+;

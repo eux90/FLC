@@ -1,0 +1,57 @@
+**** SCANNER ****
+
+L41 tk_even: some correction in the range: [86542] —> [86420]
+L45 tk_bin: missing 110(0|1){2} in range, at beginning 01 instead of 10
+L48 tk2: missing ("*"|"-") at the beginning of second part
+L50 tk3: wrong range (token copied from an old exam I did but I had no time to modify)
+L52 name: at the end put + instead of * (single char not recognised)
+L57 “$$”: was returning a wrong symbol, MINUS instead of SEP
+L62 ”%” ~ “%”: wrongly ended comment “%” instead of {nl}
+L82 “increase” instead of “increases”
+L83 “decrease” instead of “decreases” was also returning symbol INC instead of DECREASE
+L91 {integer} missing state <sect2> at beginning of line
+L92 {name} missing state <sect2> at beginning of line
+L93 <sect2>”%” ~ “%”: wrongly ended comment “%” instead of {nl}
+
+all the line below 96 are from a template i used and forgot to delete
+
+***** PARSER ****
+
+NOTICE: in the first lines there is a global variable dummy2, it was never used, it is commented in correct solution 
+
+MOST IMPORTANT ERRORS/MISSINGS
+
+L46 - L61 some terminal and non terminal used but not present in the declarations
+L78: the starting rule was not defined
+
+HEADER SECTION
+The worst part, changed a lot because the grammar I was using generated conflicts
+
+OTHER
+L100: I was always passing to the commands the initial status instead of the one modified by other commands, (replaced occurrences of NT0, NT1 with NT2, NT3 in syntax rule)
+L110: declaration (dec) was defined but was missing in the cmd syntax rule (not reachable)
+L113: dec was not returning a RESULT 
+L117: first semantic rule of att_l was missing (l.put(n, i); RESULT = l;)
+L128: if_cmd symbol semantic rule missing
+L137: missing print in mv instructions
+L168: fuel_cmd was not returning a RESULT
+L173: symbol DEC used instead of DECREASE
+L180 - L181: syntax rule ended with an extra semicolon symbol
+L183: missing symbol comma in syntax rule
+
+OTHER MINOR JAVA SYNTAX ERRORS
+
+some missing semicolon
+L102, L105, L106, L107, L108, L110, L132, L135, L145, L147, L160, L162
+
+some java declaration or syntax error:
+L169, L174, L180, L181, L188, L208
+
+some missing :var in parser rules for accessing variables or misspelled names
+L117, L120, L144, L159
+
+
+
+
+
+
