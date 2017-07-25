@@ -1,0 +1,179 @@
+import java_cup.runtime.*;
+import java.util.HashMap;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.io.*;
+import java.lang.Math.*;
+
+parser code {:
+
+  // ****** HASHMAP EXAMPLE ****** METHODS: put, get, entrySet
+
+  // double hashmap
+  public HashMap<String, Integer> map = new HashMap<String, Integer>();
+  // ****** ArrayList EXAMPLE ****** METHODS: add, get
+  //public ArrayList<String> dummy2 = new ArrayList<String>();
+
+  public int getLine() {
+      if (((Symbol)stack.elementAt(tos)).left != -1){
+          return ((Symbol)stack.elementAt(tos)).left+1;
+      }else return -1;
+  }
+  // Return the column number of actual symbol
+  public int getColumn() {
+      if (((Symbol)stack.elementAt(tos)).left != -1){
+          return ((Symbol)stack.elementAt(tos)).right+1;
+      }else return -1;
+  }
+
+  public Object stack ( int position){
+    // returns the object at the specified position // from the top (tos) of the stack
+    return(((Symbol)stack.elementAt(tos+position)).value);
+  }
+:};
+
+action code {:
+    // print line
+    void Pl(String s){
+      System.out.println(s);
+      return;
+    }
+    // print
+    void P(String s){
+      System.out.print(s);
+      return;
+    }
+:}
+
+terminal ARROW, CL, CM, S, DT;
+terminal RO, RC, BO, BC;
+terminal PLUS, MINUS, STAR, DIV;
+terminal EQ, MIN, MAX;
+terminal STAT, CASE, SWITCH, PRINT;
+terminal TK1, TK2, DATE, SEP, UMINUS;
+terminal String VAR;
+terminal Integer INT;
+
+non terminal prog, header, tk_l, tk, inst_l, inst, ass_inst, sw_inst, case_sw_l, print_l;
+non terminal Integer stat_f, exp, act_l, case_f;
+non terminal ArrayList exp_l;
+non terminal Object[] NT0, NT1;
+
+
+// Precedences and associativities
+// lower precedences
+precedence left PLUS, MINUS;
+precedence left STAR, DIV;
+precedence left UMINUS;
+// higher precedences
+
+start with prog;
+
+
+
+prog ::= header SEP inst_l;
+
+// header
+
+header ::= tk_l DATE S tk_l DATE S tk_l | tk_l DATE S tk_l | tk_l
+;
+tk_l ::= | tk_l tk
+;
+tk ::= TK1 S | TK2 S
+;
+
+
+// program
+
+inst_l ::= inst_l inst inst | inst inst inst inst inst
+;
+inst ::= ass_inst | sw_inst
+;
+
+ass_inst ::= VAR:v EQ exp:e S {: parser.map.put(v, e);  Pl(v + " = " + e); :}
+;
+
+stat_f ::= STAT RO MIN CM exp_l:l RC {: RESULT = (Integer)Collections.min((ArrayList<Integer>)l); :}
+		| STAT RO MAX CM exp_l:l RC {: RESULT = (Integer)Collections.max((ArrayList<Integer>)l); :}
+		| STAT RO RC {: RESULT = 0; :}
+;
+exp_l ::= exp_l:l CM exp:e {: l.add(e);
+								RESULT = l; :}
+		| exp:x {: RESULT = new ArrayList<Integer>();
+					RESULT.add(x);
+						:}
+;
+case_f ::= CASE RO VAR CM act_l:l RC {: RESULT = l; :}
+;
+
+act_l ::= act_l:l CM exp:a CL exp:b {: 
+								Integer i = (Integer)parser.map.get((String)parser.stack(-6)); 
+								if(i != null && (i.equals(a))){
+									RESULT = b;
+								}
+								else{
+									RESULT = l;
+								}
+	:}
+			| exp:a CL exp:b {: Integer i = (Integer)parser.map.get((String)parser.stack(-4));
+							if(i != null && (i.equals(a))){
+									RESULT = b;
+								}
+							else{
+								RESULT = 0;
+							}
+								:}
+;
+
+sw_inst ::= SWITCH VAR BO case_sw_l BC S
+;
+
+case_sw_l ::= case_sw_l CASE exp CL NT0 print_l
+				| CASE exp CL NT1 print_l
+;
+NT0 ::= {: String v = (String)parser.stack(-5);
+			RESULT = new Object[2];
+			RESULT[0] = v;
+			RESULT[1] = (Integer)parser.stack(-1);
+			:}
+;
+NT1 ::= {: String v = (String)parser.stack(-4); 
+			RESULT = new Object[2];
+			RESULT[0] = v;
+			RESULT[1] = (Integer)parser.stack(-1);
+	:}
+;
+
+print_l ::= print_l PRINT exp:e S {: Object[] o = (Object[])parser.stack(-4);
+									
+									Integer i = (Integer)parser.map.get(o[0]);
+									if(i.equals(o[1])){
+										Integer result = (Integer)o[1] * e;
+										Pl(result.toString());
+									}
+											 :}
+				| PRINT exp:e S {: Object[] o = (Object[])parser.stack(-3);
+									Integer i = (Integer)parser.map.get(o[0]);
+									if(i.equals(o[1])){
+										Integer result = (Integer)o[1] * e;
+										Pl(result.toString());
+									} :}
+;
+
+
+// Expressions
+exp ::=
+
+    /* Arithmetic expression */
+    | exp:x PLUS exp:y {: RESULT = x + y; :}
+    | exp:x MINUS exp:y {: RESULT = x - y; :}
+    | exp:x STAR exp:y {: RESULT = x * y; :}
+    | exp:x DIV exp:y {: RESULT = x / y; :}
+    | RO exp:x RC {: RESULT = x; :}
+    | INT:x {: RESULT = x; :} 			%prec UMINUS
+    | VAR:v	{: RESULT = (Integer)parser.map.get(v); :} %prec UMINUS
+    | MINUS INT:x {: RESULT = -x; :} %prec UMINUS
+    | stat_f:x {: RESULT = x; :} 
+    | case_f:x	{: RESULT = x; :} 
+;

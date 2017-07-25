@@ -2,15 +2,18 @@ import java_cup.runtime.*;
 import java.util.HashMap;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.io.*;
 import java.lang.Math.*;
 
 parser code {:
 
   // ****** HASHMAP EXAMPLE ****** METHODS: put, get, entrySet
+
+  // double hashmap
   public HashMap<String, HashMap<String, Integer>> dummy = new HashMap<String, HashMap<String, Integer>>();
-  // ****** HASHMAP EXAMPLE ****** METHODS: add, get
-  public ArrayList<String> dummy2 = new ArrayList<String>();
+  // ****** ArrayList EXAMPLE ****** METHODS: add, get
+  //public ArrayList<String> dummy2 = new ArrayList<String>();
 
   public int getLine() {
       if (((Symbol)stack.elementAt(tos)).left != -1){
@@ -44,11 +47,14 @@ action code {:
 :}
 
 terminal ARROW, CL, CM, S, DT;
+terminal SEP, TK1, TK2, TK3;
 terminal RO, RC, SO, SC, BO, BC;
 terminal PLUS, MINUS, STAR, DIV, EXP;
 terminal EQ, MIN, MAJ, MIN_EQ, EQ_MIN, MAJ_EQ, EQ_MAJ;
-terminal AND, OR, NOT;
-terminal QM, PRC, DLR, INC, DEC;
+terminal AND, OR, PIPE, NOT;
+terminal QM, PRC, DLR, HASH, INC, DEC, EQEQ, MINI, MAXI, AVG, ADD, SUB, INCR, DECR, EVAL, SET;
+terminal CASE, SWITCH, PRINT, STAT, INIT, DEFAULT, WHEN, DONE, THEN, NEXT, DO, START, MOVE, SAVE;
+terminal Boolean TRUE, FALSE;
 
 non terminal prog;
 
@@ -58,8 +64,9 @@ non terminal prog;
 precedence left OR;
 precedence left AND;
 precedence left NOT;
-precedence left EQUAL;
+precedence left EQEQ;
 precedence left PLUS, MINUS;
+precedence left STAR, DIV;
 precedence left UMINUS;
 // higher precedences
 */
@@ -70,6 +77,78 @@ start with prog;
 
 prog ::= ;
 
+/* HEADER TEMPLATES */
+
+/*
+
++++++ TK1 TK2 in any order and number also 0 times TK3 0 1 2 3 times
+
+// header
+header ::= tk12_l tk3_r tk12_l | tk12_l
+;
+tk12_l ::= | tk12_l tk12
+;
+tk12 ::= TK1 S | TK2 S
+;
+tk3_r ::= TK3 S | TK3 S TK3 S | TK3 S TK3 S TK3 S
+;
+
++++++ in any order one TK2 one EMAIL and any number TK1 even 0
+
+// header
+header ::= tk1_l EMAIL S tk1_l TK2 S tk1_l | tk1_l TK2 S tk1_l EMAIL S tk1_l
+;
+tk1_l ::= | tk1_l TK1 S
+;
+
++++++ CASE1: at least 3 and odd repetition of cd1 followed by 2 3 or 5 cd2
++++++ CASE2: 2 cd2 and any cd1 even 0, should start with cd2, second repetition of cd2 in any position
+
+// header
+header ::= case1 | case2
+;
+case2 ::= CD2 S cd1_l2 CD2 S cd1_l2
+;
+case1 ::= cd1_l CD2 S CD2 S | cd1_l CD2 S CD2 S CD2 S | cd1_l CD2 S CD2 S CD2 S CD2 S CD2 S
+;
+cd1_l ::= cd1_l CD1 S CD1 S | CD1 S CD1 S CD1 S
+;
+cd1_l2 ::= | cd1_l2 CD1 S
+;
+
++++++ CASE1: at least 2 HOUR followed by odd number of CODE optionally followed by 2 or 4 NUMBER
++++++ CASE2: only CODE and NUMBER in any order CODE appear 1 time NUMBER appear 3 times
+
+//header
+header ::= header_1 | header_2
+;
+header_1 ::= hour_l code_l | hour_l code_l number
+;
+header_2 ::= CODE S NUMBER S NUMBER S NUMBER S | NUMBER S CODE S NUMBER S NUMBER S | NUMBER S NUMBER S CODE S NUMBER S | NUMBER S NUMBER S NUMBER S CODE S
+;
+hour_l ::= hour_l HOUR S | HOUR S HOUR S
+;
+code_l ::= code_l CODE S CODE S | CODE S
+;
+number ::= NUMBER S NUMBER S | NUMBER S NUMBER S NUMBER S NUMBER S
+;
+*/
+
+/* save list in HashMap of HashMap template (format:NAME, NAME = NUMBER)
+dec ::= DEC BO att_l:l BC NAME:n S {:
+				parser.map.put(n, l);
+	:}
+;
+att_l ::= att_l:l NAME:n EQ INT:i S {:
+          l.put(n, i);
+          RESULT = l;
+				:}
+			| NAME:n EQ INT:i S {:
+				RESULT = new HashMap<String, Integer>();
+				RESULT.put(n ,i);
+				:}
+;
+*/
 
 /* expression template
 exp ::=
@@ -77,7 +156,7 @@ exp ::=
     | exp:x OR exp:y {: RESULT = (x || y);  :}
     | NOT exp:x      {: RESULT = !x; :}
     | RO exp:x RC     {: RESULT = x; :}
-    | exp_int:x EQUAL exp_int:y {: RESULT = x.equals(y); :}
+    | exp_int:x EQEQ exp_int:y {: RESULT = x.equals(y); :}
 
 ;
 
@@ -87,5 +166,46 @@ exp_int ::= MINUS INT:i {: RESULT = -i; :}
           | NAME:n DT ATT:a {:
                 HashMap<String,Integer> tb = parser.table.get(n);
             RESULT = tb.get(a); :} %prec UMINUS
+;
+*/
+
+/* if else type statement template with inherited attributes
+if_cmd ::= QM exp BO NT6 mv_l:l BC S {:
+            RESULT = l;
+      :}
+			| QM exp:e BO NT6 mv_l:l1 BC ELSE BO NT7 mv_l:l2 BC S {:
+              if(e == true){
+                RESULT = l1;
+              }
+              else{
+                RESULT = l2;
+              }
+        :}
+;
+
+NT6 ::= {: RESULT = (Boolean)parser.stack(-1); :}
+;
+NT7 ::= {: Boolean exp = (Boolean)parser.stack(-6);
+			RESULT = !exp;
+			:}
+;
+*/
+
+/* recursive list (mixed list of max functions or single item)
+
+max_f ::= MAX RO item_l:l RC {: RESULT = l; :}
+        | MAX RO RC
+;
+item_l ::= item_l:l CM max_f:m {: RESULT = Math.max(l,m); :}
+          | item_l:l CM INT:i {: RESULT = Math.max(l,i); :}
+          | max_f:m {: RESULT = m; :}
+          | INT:i {: RESULT = i; :}
+;
+
+*/
+
+/* MIN MAX function TEMPLATE
+mm_func ::= MIN RO exp_int_l:l RC {: RESULT = (Integer)Collections.min((ArrayList<Integer>)l); :}
+			| MAX RO exp_int_l:l RC {: RESULT = (Integer)Collections.max((ArrayList<Integer>)l); :}
 ;
 */

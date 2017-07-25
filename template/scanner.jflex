@@ -8,6 +8,7 @@ import java_cup.runtime.*;
 %standalone
 %line
 %column
+%xstate sect2
 
 %{
 
@@ -34,8 +35,12 @@ import java_cup.runtime.*;
   }
 %}
 
-nl                                = \n|\r|\r\n
-ws                                = " "|\t
+nl  = \n|\r|\r\n
+ws  = " "|\t
+comment   = "//" ~ {nl}
+sep =  ("%"){4}("%%")*
+
+
 /* all the alphabet letters and the special characters except: slash, backslash, colon, star, question mark, double quotes, minus, greater, OR symbol. */
 letter                            = [^\n\r\\/:*?\"<> |0-9]
 digit                             = [0-9]
@@ -72,7 +77,7 @@ isbn			                        =	[0-9]{2}-[0-9]{2}-[0-9A-Fa-f]{5}-[A-Za-z0-9]
 /* odd number between -35 and 333 */
 odd_number                        = "-"(3[135]|[12][13579]|[13579])|[13579]|[1-9][13579]|[12][0-9][13579]|3([0-2][13579]|3[13])
 /* even number -138 -- 824 */
-even_number                       = ("-"(1[3-0][865420]|[1-9][865420]|[86542]))|[865420]|[1-9][865420]|[1-7][0-9][865420]|8[0-1][865420]|820|822|824
+even_number                       = ("-"(1[3-0][86420]|[1-9][86420]|[86420]))|[86420]|[1-9][86420]|[1-7][0-9][86420]|8[0-1][86420]|820|822|824
 /* an odd repetitoion of % but at least 5 times */
 rep_prc_odd                      = ("%%%%%")("%%")*
 /* 2 or 3 repetition of "**" and "???" in any order */
@@ -82,47 +87,119 @@ date_range                       = 2015"/"12"/"(1[2-9]|2[0-9]|3[01])|2016"/"(01"
 /* hour between 04:32 - 15:47 */
 hour_range                       = 04":"(3[2-9]|[45][0-9])|0[5-9]":"[0-5][0-9]|1[0-4]":"[0-5][0-9]|15":"([0-3][0-9]|4[0-7])
 /* hour between 10:11:12 - 15:36:47 */
-hour_range_2                       = (10":"11":"(1[2-9]|[2-5][0-9]))|(10":"1[2-9]":"[0-5][0-9])|(10":"[2-5][0-9]":"[0-5][0-9])|(1[1-4]":"[0-5][0-9]":"[0-5][0-9])|(15":"[12][0-9]":"[0-5][0-9])|(15":"3[0-5]":"[0-5][0-9])|(15":"36":"([0-3][0-9]|4[0-7]))
+hour_range_2                       = (10":"11":"(1[2-9]|[2-5][0-9]))|(10":"1[2-9]":"[0-5][0-9])|(10":"[2-5][0-9]":"[0-5][0-9])|(1[1-4]":"[0-5][0-9]":"[0-5][0-9])|(15":"[0-2][0-9]":"[0-5][0-9])|(15":"3[0-5]":"[0-5][0-9])|(15":"36":"([0-3][0-9]|4[0-7]))
 /* binary number between 101 and 101000 */
 binary_range                     = (101|110|111|1(0|1){3}|1(0|1){4}|100(0|1){3}|101000)
-/* odd hexadecimal between -3B -- aB5 */  
+/* odd hexadecimal between -3B -- aB5 */
 hex_range                            = ("-"(3[DdFfBb97531]|2[DdFfBb97531]|1[DdFfBb97531]|[DdFfBb97531]))|([DdFfBb97531]|[1-9A-Fa-f][DdFfBb97531]|[1-9][1-9A-Fa-f][DdFfBb97531]|[aA][aA97531][DdFfBb97531]|[aA][bB][135])
 
 %%
 
 /* new Character(yycharat(0))) --> get a char */
 
-"->"	                         		{ return plrs(sym.ARROW, "ARROW"); }
-":"                          			{ return plrs(sym.CL, "CL"); }
-","			                          { return plrs(sym.CM, "CM"); }
-";"			                          { return plrs(sym.S, "S"); }
-"."			                          { return plrs(sym.DT, "DT"); }
-"("                               { return plrs(sym.RO, "RO"); }
-")"                               { return plrs(sym.RC, "RC"); }
-"["                               { return plrs(sym.SO, "SO"); }
-"]"                               { return plrs(sym.SC, "SC"); }
-"{"                               { return plrs(sym.BO, "BO"); }
-"}"                               { return plrs(sym.BC, "BC"); }
-"+"                               { return plrs(sym.PLUS, "PLUS"); }
-"-"                               { return plrs(sym.MINUS, "MINUS"); }
-"*"                               { return plrs(sym.STAR, "STAR"); }
-"/"                               { return plrs(sym.DIV, "DIV"); }
-"^"			                          { return plrs(sym.EXP, "EXP"); }
-"="                               { return plrs(sym.EQ, "EQ"); }
-"<"                               { return plrs(sym.MIN, "MIN"); }
-">"                               { return plrs(sym.MAJ, "MAJ"); }
-"<="                              { return plrs(sym.MIN_EQ, "MIN_EQ"); }
-"=<"                              { return plrs(sym.EQ_MIN, "EQ_MIN"); }
-">="                              { return plrs(sym.MAJ_EQ, "MAJ_EQ"); }
-"=>"                              { return plrs(sym.EQ_MAJ, "EQ_MAJ"); }
-"&"                               { return plrs(sym.AND, "AND"); }
-"|"                               { return plrs(sym.OR, "OR"); }
-"!"                               { return plrs(sym.NOT, "NOT"); }
-"?"                               { return plrs(sym.QM, "QM"); }
-"%"                               { return plrs(sym.PRC, "PRC"); }
-"$"                               { return plrs(sym.DLR, "DLR"); }
-"++"                              { return plrs(sym.INC, "INC"); }
-"--"                              { return plrs(sym.DEC, "DEC"); }
-"//" ~ {nl}                       {;}
-{ws}|{nl}                         {;}
-.                                 {System.out.println("SCANNER ERROR: " + yytext());}
+{sep}								{ yybegin(sect2); return plrs(sym.SEP, "SEP"); }
+//{tk1}									{ return plrs(sym.TK1, "TK1"); }
+//{tk2}									{ return plrs(sym.TK2, "TK2"); }
+//{tk3}									{ return plrs(sym.TK3, "TK3"); }
+";"			              { return plrs(sym.S, "S"); }
+{ws}|{nl}             {;}
+{comment}             {;}
+.                     {System.out.println("SCANNER ERROR: " + yytext());}
+
+<sect2>"->"  { return plrs(sym.ARROW, "ARROW"); }
+<sect2>":"   { return plrs(sym.CL, "CL"); }
+<sect2>","		{ return plrs(sym.CM, "CM"); }
+<sect2>";"		{ return plrs(sym.S, "S"); }
+//<sect2>"."		{ return plrs(sym.DT, "DT"); }
+<sect2>"("   { return plrs(sym.RO, "RO"); }
+<sect2>")"   { return plrs(sym.RC, "RC"); }
+<sect2>"["   { return plrs(sym.SO, "SO"); }
+<sect2>"]"   { return plrs(sym.SC, "SC"); }
+<sect2>"{"   { return plrs(sym.BO, "BO"); }
+<sect2>"}"   { return plrs(sym.BC, "BC"); }
+<sect2>"+"   { return plrs(sym.PLUS, "PLUS"); }
+<sect2>"-"   { return plrs(sym.MINUS, "MINUS"); }
+<sect2>"*"   { return plrs(sym.STAR, "STAR"); }
+<sect2>"/"   { return plrs(sym.DIV, "DIV"); }
+<sect2>"^"		{ return plrs(sym.EXP, "EXP"); }
+<sect2>"="   { return plrs(sym.EQ, "EQ"); }
+<sect2>"<"   { return plrs(sym.MIN, "MIN"); }
+<sect2>">"   { return plrs(sym.MAJ, "MAJ"); }
+<sect2>"<="  { return plrs(sym.MIN_EQ, "MIN_EQ"); }
+<sect2>"=<"  { return plrs(sym.EQ_MIN, "EQ_MIN"); }
+<sect2>">="  { return plrs(sym.MAJ_EQ, "MAJ_EQ"); }
+<sect2>"=>"  { return plrs(sym.EQ_MAJ, "EQ_MAJ"); }
+<sect2>"&&"   { return plrs(sym.AND, "AND"); }
+<sect2>"||"   { return plrs(sym.OR, "OR"); }
+<sect2>"|"   { return plrs(sym.PIPE, "PIPE"); }
+<sect2>"!"   { return plrs(sym.NOT, "NOT"); }
+<sect2>"AND"   { return plrs(sym.AND, "AND"); }
+<sect2>"OR"   { return plrs(sym.OR, "OR"); }
+<sect2>"NOT"   { return plrs(sym.NOT, "NOT"); }
+<sect2>"and"   { return plrs(sym.AND, "AND"); }
+<sect2>"or"    { return plrs(sym.OR, "OR"); }
+<sect2>"not"   { return plrs(sym.NOT, "NOT"); }
+<sect2>"?"   { return plrs(sym.QM, "QM"); }
+<sect2>"%"   { return plrs(sym.PRC, "PRC"); }
+<sect2>"$"   { return plrs(sym.DLR, "DLR"); }
+<sect2>"#"   { return plrs(sym.HASH, "HASH"); }
+<sect2>"++"  { return plrs(sym.INC, "INC"); }
+<sect2>"--"  { return plrs(sym.DEC, "DEC"); }
+<sect2>"=="  { return plrs(sym.EQEQ, "EQEQ"); }
+<sect2>"MIN" { return plrs(sym.MINI, "MINI"); }
+<sect2>"min"   { return plrs(sym.MINI, "MINI"); }
+<sect2>"MAX" { return plrs(sym.MAXI, "MAXI"); }
+<sect2>"max"   { return plrs(sym.MAXI, "MAXI"); }
+<sect2>"AVG"   { return plrs(sym.AVG, "AVG"); }
+<sect2>"avg"   { return plrs(sym.AVG, "AVG"); }
+<sect2>"ADD"   { return plrs(sym.ADD, "ADD"); }
+<sect2>"add"   { return plrs(sym.ADD, "ADD"); }
+<sect2>"SUB"   { return plrs(sym.SUB, "SUB"); }
+<sect2>"sub"   { return plrs(sym.SUB, "SUB"); }
+<sect2>"INCREASE"   { return plrs(sym.INCR, "INCR"); }
+<sect2>"increase"   { return plrs(sym.INCR, "INCR"); }
+<sect2>"INC"   { return plrs(sym.INCR, "INCR"); }
+<sect2>"inc"   { return plrs(sym.INCR, "INCR"); }
+<sect2>"DECREASE"   { return plrs(sym.DECR, "DECR"); }
+<sect2>"decrease"   { return plrs(sym.DECR, "DECR"); }
+<sect2>"DEC"   { return plrs(sym.DECR, "DECR"); }
+<sect2>"dec"   { return plrs(sym.DECR, "DECR"); }
+<sect2>"EVALUATE"   { return plrs(sym.EVAL, "EVAL"); }
+<sect2>"evaluate"   { return plrs(sym.EVAL, "EVAL"); }
+<sect2>"TRUE"   { return plrs(sym.TRUE, new Boolean(true), "TRUE"); }
+<sect2>"true"   { return plrs(sym.TRUE, new Boolean(true), "TRUE"); }
+<sect2>"FALSE"   { return plrs(sym.FALSE, new Boolean(false), "FALSE"); }
+<sect2>"false"   { return plrs(sym.FALSE, new Boolean(false), "FALSE"); }
+<sect2>"SET"   { return plrs(sym.SET, "SET"); }
+<sect2>"set"    { return plrs(sym.SET, "SET"); }
+<sect2>"CASE" { return plrs(sym.CASE, "CASE"); }
+<sect2>"case" { return plrs(sym.CASE, "CASE"); }
+<sect2>"SWITCH" { return plrs(sym.SWITCH, "SWITCH"); }
+<sect2>"switch" { return plrs(sym.SWITCH, "SWITCH"); }
+<sect2>"PRINT" { return plrs(sym.PRINT, "PRINT"); }
+<sect2>"print" { return plrs(sym.PRINT, "PRINT"); }
+<sect2>"STAT" { return plrs(sym.STAT, "STAT"); }
+<sect2>"stat" { return plrs(sym.STAT, "STAT"); }
+<sect2>"INIT" { return plrs(sym.INIT, "INIT"); }
+<sect2>"init"   { return plrs(sym.INIT, "INIT"); }
+<sect2>"DEFAULT"  { return plrs(sym.DEFAULT, "DEFAULT"); }
+<sect2>"default"   { return plrs(sym.DEFAULT, "DEFAULT"); }
+<sect2>"WHEN"   { return plrs(sym.WHEN, "WHEN"); }
+<sect2>"when"    { return plrs(sym.WHEN, "WHEN"); }
+<sect2>"DONE"     { return plrs(sym.DONE, "DONE"); }
+<sect2>"done"    { return plrs(sym.DONE, "DONE"); }
+<sect2>"THEN"   { return plrs(sym.THEN, "THEN"); }
+<sect2>"then"    { return plrs(sym.THEN, "THEN"); }
+<sect2>"NEXT"     { return plrs(sym.NEXT, "NEXT"); }
+<sect2>"next"    { return plrs(sym.NEXT, "NEXT"); }
+<sect2>"DO"     { return plrs(sym.DO, "DO"); }
+<sect2>"do"      { return plrs(sym.DO, "DO"); }
+<sect2>"START"   { return plrs(sym.START, "START"); }
+<sect2>"start"   { return plrs(sym.START, "START"); }
+<sect2>"MOVE"    { return plrs(sym.MOVE, "MOVE"); }
+<sect2>"move"    { return plrs(sym.MOVE, "MOVE"); }
+<sect2>"SAVE"    { return plrs(sym.SAVE, "SAVE"); }
+<sect2>"save"   { return plrs(sym.SAVE, "SAVE"); }
+<sect2>{comment} {;}
+<sect2>{ws}|{nl} {;}
+<sect2>. {System.out.println("SCANNER ERROR: " + yytext());}
